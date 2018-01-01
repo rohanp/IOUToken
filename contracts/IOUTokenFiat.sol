@@ -26,7 +26,7 @@ contract IOUTokenFiat {
 		string _name, string _symbol, uint _apr, uint _totalSupply, uint _yearsTillExpiry
 		) public {
 
-		backer = msg.sender;
+		backer = tx.origin;
 		name = _name;
 		symbol = _symbol;
 		totalSupply = _totalSupply;
@@ -60,6 +60,8 @@ contract IOUTokenFiat {
 	}
 
 	function balanceOf(address _owner) public constant returns (uint){
+		if (_owner == backer)
+			return balances[_owner].amount;
 
 		return balances[_owner].amount + calculateInterest(_owner);
 	}
