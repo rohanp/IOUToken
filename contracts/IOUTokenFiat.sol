@@ -5,6 +5,11 @@ contract IOUTokenFiat {
 
 	event Transfer(address indexed _from, address indexed _to, uint _value);
 	event Approval(address indexed _owner, address indexed _spender, uint _value);
+
+	struct Balance {
+		uint amount;
+		uint lastUpdated;
+	}
 	
 	string public name;
 	string public symbol;
@@ -12,8 +17,7 @@ contract IOUTokenFiat {
 	uint public apr;
 	uint public expiryDate;
 	uint8 public decimals = 2;
-	mapping (address => uint) public balances;
-	mapping (address => uint) public lastUpdatedDates;
+	mapping (address => Balance) public balances;
 	mapping (address => mapping(address => uint)) public allowances;
 	uint public totalSupply;
 
@@ -28,12 +32,13 @@ contract IOUTokenFiat {
 		totalSupply = _totalSupply;
 		apr = _apr;
 		expiryDate = block.timestamp + _yearsTillExpiry * 1 years;
-		balances[backer] = _totalSupply;
+		balances[backer] = Balance(_totalSupply, block.timestamp);
 
 	}
 
 	function calculateInterest(address _person) public view returns (uint interest) {
-		return balances[_person] * (apr / (1 years)) ** (block.timestamp - lastUpdatedDates[_person]);
+		Balance storage b = balances[_person];
+		return b.amount * (apr / (1 years)) ** (block.timestamp - b.lastUpdated);
 	}
 
 	function updateBalance(address _person) internal returns (uint newBalance) {
@@ -47,15 +52,16 @@ contract IOUTokenFiat {
 
 		require(interest != 0);
 
-		 balances[_person] += interest;
-		 lastUpdatedDates[_person] = block.timestamp; 
+		 balances[_person].amount += interest;
+		 balances[_person].lastUpdated = block.timestamp; 
 		 totalSupply += interest;
 		// Transfer(0x0, _person, interest); // tokens created
-		return balances[_person];
+		return balances[_person].amount;
 	}
 
 	function balanceOf(address _owner) public constant returns (uint){
-		return balances[_owner] + calculateInterest(_owner);
+
+		return balances[_owner].amount + calculateInterest(_owner);
 	}
 
 	function transfer(address _to, uint _amount) public returns (bool success){
@@ -70,12 +76,12 @@ contract IOUTokenFiat {
 		// to date and interest on added funds is calculated from current time 
 		//updateBalance(_to);
 		// check if sender has sufficient balance
-		require(balances[_from] >= _amount);
+		require(balances[_from].amount >= _amount);
 		//check for uint overflow
-		require(balances[_to] + _amount > balances[_to]);
+		require(balances[_to].amount + _amount > balances[_to].amount);
 
-		balances[_from] -= _amount;
-		balances[_to] += _amount;
+		balances[_from].amount -= _amount;
+		balances[_to].amount += _amount;
 
 		Transfer(_from, _to, _amount);
 		return true;
@@ -83,9 +89,9 @@ contract IOUTokenFiat {
 
 	function repay(uint _amount) public returns (bool){
 		updateBalance(msg.sender);
-		require(balances[msg.sender] > _amount);
+		require(balances[msg.sender].amount > _amount);
 
-		balances[msg.sender] -= _amount;
+		balances[msg.sender].amount -= _amount;
 		Transfer(msg.sender, 0x0, _amount);
 		return true;
 	}
