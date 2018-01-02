@@ -37,8 +37,8 @@ contract IOUTokenFiat {
 	}
 
 	function calculateInterest(address _person) public view returns (uint interest) {
-		Balance storage b = balances[_person];
-		return b.amount * (apr / (1 years)) ** (block.timestamp - b.lastUpdated);
+		Balance memory b = balances[_person];
+		return b.amount - b.amount * (apr / (1 years)) ** (block.timestamp - b.lastUpdated);
 	}
 
 	function updateBalance(address _person) internal returns (uint newBalance) {
@@ -46,16 +46,16 @@ contract IOUTokenFiat {
 			selfdestruct(backer);
 		}
 
-		require(_person != backer);
+		if (_person == backer){
+			return balances[_person].amount;
+		}
 
 		uint interest = calculateInterest(_person);
 
-		require(interest != 0);
-
-		 balances[_person].amount += interest;
-		 balances[_person].lastUpdated = block.timestamp; 
-		 totalSupply += interest;
-		// Transfer(0x0, _person, interest); // tokens created
+		balances[_person].amount += interest;
+		balances[_person].lastUpdated = block.timestamp; 
+		totalSupply += interest;
+		Transfer(0x0, _person, interest); // tokens created
 		return balances[_person].amount;
 	}
 
@@ -73,10 +73,10 @@ contract IOUTokenFiat {
 	function _transfer(address _from, address _to, uint _amount) internal returns (bool success) {
 		// update balance of sender in case the interest is necessary 
 		// to have sufficient funds for transaction
-		//updateBalance(_from);
+		updateBalance(_from);
 		// update balance of receiver so that interest on old funds is brought up
 		// to date and interest on added funds is calculated from current time 
-		//updateBalance(_to);
+		updateBalance(_to);
 		// check if sender has sufficient balance
 		require(balances[_from].amount >= _amount);
 		//check for uint overflow
@@ -90,10 +90,12 @@ contract IOUTokenFiat {
 	}
 
 	function repay(uint _amount) public returns (bool){
+		require(msg.sender != backer);
 		updateBalance(msg.sender);
 		require(balances[msg.sender].amount > _amount);
 
 		balances[msg.sender].amount -= _amount;
+		totalSupply -= _amount;
 		Transfer(msg.sender, 0x0, _amount);
 		return true;
 	}
