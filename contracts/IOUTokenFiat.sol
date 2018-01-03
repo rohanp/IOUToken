@@ -36,16 +36,8 @@ contract IOUTokenFiat {
 
 	}
 
-	// Computes `k * (1+1/q) ^ n`, with precision `p`. The higher
-	// the precision, the higher the gas cost. It should be
-	// something around the log of `n`. When `p == n`, the
-	// precision is absolute (sans possible integer overflows).
-	// Much smaller values are sufficient to get a great approximation.
-
-	/* Approximates `k * (1 + 1/q)^n` through laurent series expansion 
-		 with p terms. Centered at infty, converges for all q != 0. Error of 
-
-
+/* Approximates `k * (1 + 1/q)^n` through laurent series expansion 
+	 with p terms. Centered at infty, converges for all q != 0.
 	*/ 
 	function _fracExp(uint k, uint q, uint n, uint p) internal pure returns (uint) {
 	  uint s = 0;
@@ -64,14 +56,6 @@ contract IOUTokenFiat {
 			
 		uint inverseRate = 365 * 100 / apr;
 		uint numCompounds = (block.timestamp - b.lastUpdated) / (1 days);
-		uint precision;
-
-		if (numCompounds < 10)
-			precision = numCompounds;
-		else if (numCompounds < 1000)
-			precision = numCompounds / 10;
-		else
-			precision = numCompounds / 100;
 
 		return _fracExp(b.amount, inverseRate, numCompounds, 20) - b.amount;
 	}
@@ -87,10 +71,14 @@ contract IOUTokenFiat {
 
 		uint interest = calculateInterest(_person);
 
-		balances[_person].amount += interest;
-		balances[_person].lastUpdated = block.timestamp; 
-		totalSupply += interest;
-		Transfer(0x0, _person, interest); // tokens created
+		// dont update lastUpdated date if interest < 1 to limit rounding error
+		if (interest != 0 || balances[_person].lastUpdated == 0){
+			balances[_person].lastUpdated = block.timestamp; 
+			totalSupply += interest;
+			balances[_person].amount += interest;
+			Transfer(0x0, _person, interest); // tokens created
+		}
+
 		return balances[_person].amount;
 	}
 

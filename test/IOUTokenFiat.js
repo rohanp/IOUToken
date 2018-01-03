@@ -76,18 +76,19 @@ contract('IOUTokenFiat', accounts => {
 
 })
 
-/*
+
 contract('IOUTokenFiat', accounts => {
+
+	let balance;
 
 	it("should put 100000 iou in the first account", async () => {
 		let t = await token.deployed();
-		let balance = await t.balanceOf.call(accounts[0]);
+		balance = await t.balanceOf.call(accounts[0]);
 		assert.equal(balance.valueOf(), initialAmount); 
 	})
 
 	it("should send coin correctly", async () => {
 		let t = await token.deployed();
-		let balance1Before = await t.balanceOf.call(accounts[1]);
 
 		await t.transfer(accounts[1], amount, {from: accounts[0]})
 		let balance1 = await t.balanceOf.call(accounts[1]);
@@ -103,7 +104,6 @@ contract('IOUTokenFiat', accounts => {
 		let t = await token.deployed();
 		const expectedInterest = getInterest(amount, daysToAdv);
 
-		await t.transfer(accounts[1], amount, {from: accounts[0]});
 		//console.log("timestamp: " + web3.eth.getBlock(web3.eth.blockNumber).timestamp)
 		await timeTravel(60 * 60 * 24 * daysToAdv);
 		// need too mine block to adv time
@@ -111,12 +111,12 @@ contract('IOUTokenFiat', accounts => {
 
 		//console.log("timestamp: " + web3.eth.getBlock(web3.eth.blockNumber).timestamp)
 		interest = await t.calculateInterest.call(accounts[1]);
-		let balance = await t.balanceOf.call(accounts[1]);
+		balance = await t.balanceOf.call(accounts[1]);
 		//console.log("interest: " + interest.valueOf())
 		//console.log("expectedInterest: " + expectedInterest)
 
 		assert(Math.abs(expectedInterest - interest.valueOf()) < 1);
-		assert(Math.abs(balance - (initialAmount + expectedInterest)) < 1);
+		assert(Math.abs(balance.valueOf() - (amount + expectedInterest)) < 1);
 
 		//balance = await t.calculateInterest.call(accounts[1]);
 		//console.log(balance.valueOf());
@@ -125,9 +125,9 @@ contract('IOUTokenFiat', accounts => {
 	it("should repay coin correctly", async () => {
 		let t = await token.deployed();
 
-		await t.repay(amount + interest, {from: accounts[1]});
+		await t.repay(balance, {from: accounts[1]});
 
-		let balance = await t.balanceOf.call(accounts[1]);
+		balance = await t.balanceOf.call(accounts[1]);
 		assert.equal(balance.valueOf(), 0);
 
 		let totalSupply = await t.totalSupply.call();
@@ -137,7 +137,7 @@ contract('IOUTokenFiat', accounts => {
 	it("should not award interest after funds have left", async () => {
 		let t = await token.deployed();
 
-		let balance = await t.balanceOf.call(accounts[1]);
+		balance = await t.balanceOf.call(accounts[1]);
 		assert.equal(balance.valueOf(), 0);
 
 		await timeTravel(60 * 60 * 24 * daysToAdv);
@@ -169,14 +169,15 @@ contract('IOUTokenFiat', accounts => {
 		// need too mine block to adv time
 		await t.transfer(accounts[3], 10, {from: accounts[0]});
 
-		let balance = t.balanceOf(accounts[1]);
+		balance = await t.balanceOf(accounts[1]);
 		expectedBalance += getInterest(expectedBalance, daysToAdv1);
+		expectedBalance += amount2
 		expectedBalance += getInterest(expectedBalance, daysToAdv2);
 
-		assert(expectedBalance - balance.valueOf() < 1);
+		assert(Math.abs(expectedBalance - balance.valueOf()) < 1);
 	})
 })
-*/
+
 
 const getInterest = (principal, days) => {
 	return principal * (1 + apr / 100 / 365) ** days - principal;
