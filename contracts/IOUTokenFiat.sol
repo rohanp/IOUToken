@@ -36,9 +36,44 @@ contract IOUTokenFiat {
 
 	}
 
+	// Computes `k * (1+1/q) ^ n`, with precision `p`. The higher
+	// the precision, the higher the gas cost. It should be
+	// something around the log of `n`. When `p == n`, the
+	// precision is absolute (sans possible integer overflows).
+	// Much smaller values are sufficient to get a great approximation.
+
+	/* Approximates `k * (1 + 1/q)^n` through laurent series expansion 
+		 with p terms. Centered at infty, converges for all q != 0. Error of 
+
+
+	*/ 
+	function _fracExp(uint k, uint q, uint n, uint p) internal pure returns (uint) {
+	  uint s = 0;
+	  uint N = 1;
+	  uint B = 1;
+	  for (uint i = 0; i < p; ++i){
+	    s += k * N / B / (q**i);
+	    N  = N * (n-i);
+	    B  = B * (i+1);
+	  }
+	  return s;
+	}
+
 	function calculateInterest(address _person) public view returns (uint interest) {
 		Balance memory b = balances[_person];
-		return b.amount - b.amount * (apr / (1 years)) ** (block.timestamp - b.lastUpdated);
+			
+		uint inverseRate = 365 * 100 / apr;
+		uint numCompounds = (block.timestamp - b.lastUpdated) / (1 days);
+		uint precision;
+
+		if (numCompounds < 10)
+			precision = numCompounds;
+		else if (numCompounds < 1000)
+			precision = numCompounds / 10;
+		else
+			precision = numCompounds / 100;
+
+		return _fracExp(b.amount, inverseRate, numCompounds, 20) - b.amount;
 	}
 
 	function updateBalance(address _person) internal returns (uint newBalance) {
@@ -80,7 +115,7 @@ contract IOUTokenFiat {
 		// check if sender has sufficient balance
 		require(balances[_from].amount >= _amount);
 		//check for uint overflow
-		require(balances[_to].amount + _amount > balances[_to].amount);
+		require(balances[_to].amount + _amount >= balances[_to].amount);
 
 		balances[_from].amount -= _amount;
 		balances[_to].amount += _amount;
@@ -92,7 +127,7 @@ contract IOUTokenFiat {
 	function repay(uint _amount) public returns (bool){
 		require(msg.sender != backer);
 		updateBalance(msg.sender);
-		require(balances[msg.sender].amount > _amount);
+		require(balances[msg.sender].amount >= _amount);
 
 		balances[msg.sender].amount -= _amount;
 		totalSupply -= _amount;
