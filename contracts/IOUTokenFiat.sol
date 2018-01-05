@@ -21,7 +21,29 @@ contract IOUTokenFiat {
 	mapping (address => mapping(address => uint)) public allowances;
 	uint public totalSupply;
 
-	/* Instantiates token */
+/*
+Initializes IOUToken instance. 
+
+Params
+------
+_name : string
+     Name of currency (eg. "RohanCoin")
+     
+_symbol : string
+     Symbol of currency (eg. "XRC")
+     
+_apr : uint
+     A 5% rate would be expressed as 5. Currently no support for decimal rates.
+     
+_totalSupply : uint
+      Total quantity of currency that can be issued. Solidity does not currently
+      support floating point numbers, so this number is 100x the amount of your loan
+      (eg. if you wanted a loan for $100.50 you would put 10050)
+
+_yearsTillExpiry : uint
+      Number of years in which the currency will expire and be destroyed.
+      You are supposed to buy back all the currency in this time. 
+*/
 	function IOUTokenFiat (
 		string _name, string _symbol, uint _apr, uint _totalSupply, uint _yearsTillExpiry
 		) public {
@@ -36,9 +58,10 @@ contract IOUTokenFiat {
 
 	}
 
-/* Approximates `k * (1 + 1/q)^n` through laurent series expansion 
-	 with p terms. Centered at infty, converges for all q != 0.
-	*/ 
+/* 
+	Approximates `k * (1 + 1/q)^n` through laurent series expansion 
+	with p terms. Centered at infty, converges for all q != 0.
+*/ 
 	function _fracExp(uint k, uint q, uint n, uint p) internal pure returns (uint) {
 	  uint s = 0;
 	  uint N = 1;
@@ -51,6 +74,10 @@ contract IOUTokenFiat {
 	  return s;
 	}
 
+/* 
+	Calculates interest owed to a given address, but doesn't
+	update it on blockchain.
+*/
 	function calculateInterest(address _person) public view returns (uint interest) {
 		Balance memory b = balances[_person];
 			
@@ -60,6 +87,9 @@ contract IOUTokenFiat {
 		return _fracExp(b.amount, inverseRate, numCompounds, 20) - b.amount;
 	}
 
+/* 
+	Updates balance of address on blockchain with interest owed
+*/
 	function updateBalance(address _person) internal returns (uint newBalance) {
 		if (block.timestamp > expiryDate) {
 			selfdestruct(backer);
@@ -82,6 +112,10 @@ contract IOUTokenFiat {
 		return balances[_person].amount;
 	}
 
+/* 
+	Returns balance + interest owed to a given address, but doesn't
+	update it on blockchain.
+*/
 	function balanceOf(address _owner) public constant returns (uint){
 		if (_owner == backer)
 			return balances[_owner].amount;
@@ -112,6 +146,9 @@ contract IOUTokenFiat {
 		return true;
 	}
 
+	/* 
+		Gives `_amount` tokens back to issuer
+	*/
 	function repay(uint _amount) public returns (bool){
 		require(msg.sender != backer);
 		updateBalance(msg.sender);
