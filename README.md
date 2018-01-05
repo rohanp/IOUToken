@@ -82,9 +82,9 @@ function IOUTokenFiat (
 	function balanceOf(address _owner) public constant returns (uint)
   
 /* 
-  Gives `_amount` tokens back to issuer
+        Gives `_amount` tokens back to issuer
 */
-  function repay(uint _amount) public returns (bool)
+        function repay(uint _amount) public returns (bool)
 ```
 
 
